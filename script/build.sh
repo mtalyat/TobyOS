@@ -42,17 +42,17 @@ else
 fi
 
 echo "[build] Assembling kernel entry"
-nasm -f elf32 kernel_entry.asm -o kernel_entry.o
+nasm -f elf32 source/kernel/kernel_entry.asm -o kernel_entry.o
 
 echo "[build] Compiling kernel.cpp"
 if [[ "$TOOLCHAIN" == "clang" ]]; then
-	"$CXX" --target=i686-elf -ffreestanding -fno-exceptions -fno-rtti -fno-stack-protector -nostdlib -nodefaultlibs -c kernel.cpp -o kernel.o
+	"$CXX" --target=i686-elf -ffreestanding -fno-exceptions -fno-rtti -fno-stack-protector -nostdlib -nodefaultlibs -I source/type -c source/kernel/kernel.cpp -o kernel.o
 else
-	"$CXX" -m32 -ffreestanding -fno-exceptions -fno-rtti -fno-stack-protector -nostdlib -nodefaultlibs -c kernel.cpp -o kernel.o
+	"$CXX" -m32 -ffreestanding -fno-exceptions -fno-rtti -fno-stack-protector -nostdlib -nodefaultlibs -I source/type -c source/kernel/kernel.cpp -o kernel.o
 fi
 
 echo "[build] Linking kernel.elf"
-"$LD" -m elf_i386 -T linker.ld -nostdlib -o kernel.elf kernel_entry.o kernel.o
+"$LD" -m elf_i386 -T source/link/linker.ld -nostdlib -o kernel.elf kernel_entry.o kernel.o
 
 echo "[build] Converting kernel.elf -> kernel.bin"
 "$OBJCOPY" -O binary kernel.elf kernel.bin
@@ -61,7 +61,7 @@ KERNEL_SIZE=$(wc -c < kernel.bin | tr -d '[:space:]')
 KERNEL_SECTORS=$(( (KERNEL_SIZE + 511) / 512 ))
 
 echo "[build] Assembling bootloader (kernel sectors: ${KERNEL_SECTORS})"
-nasm -f bin boot.asm -o boot.bin -DKERNEL_SECTORS="${KERNEL_SECTORS}"
+nasm -f bin source/boot/boot.asm -o boot.bin -DKERNEL_SECTORS="${KERNEL_SECTORS}"
 
 echo "[build] Creating os-image.bin"
 cat boot.bin kernel.bin > os-image.bin
