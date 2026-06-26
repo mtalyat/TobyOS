@@ -13,6 +13,7 @@ if command -v clang++ >/dev/null 2>&1 && \
 	CXX=clang++
 	LD=ld.lld
 	OBJCOPY=llvm-objcopy
+    TARGET_FLAGS=(--target=i686-elf)
 elif command -v i686-elf-g++ >/dev/null 2>&1 && \
 		 command -v i686-elf-ld >/dev/null 2>&1 && \
 		 command -v i686-elf-objcopy >/dev/null 2>&1; then
@@ -20,6 +21,7 @@ elif command -v i686-elf-g++ >/dev/null 2>&1 && \
 	CXX=i686-elf-g++
 	LD=i686-elf-ld
 	OBJCOPY=i686-elf-objcopy
+    TARGET_FLAGS=()
 elif command -v i386-elf-g++ >/dev/null 2>&1 && \
 		 command -v i386-elf-ld >/dev/null 2>&1 && \
 		 command -v i386-elf-objcopy >/dev/null 2>&1; then
@@ -27,6 +29,7 @@ elif command -v i386-elf-g++ >/dev/null 2>&1 && \
 	CXX=i386-elf-g++
 	LD=i386-elf-ld
 	OBJCOPY=i386-elf-objcopy
+    TARGET_FLAGS=()
 else
 	echo "[build] Missing compiler tools."
 	echo "[build] Need either:"
@@ -41,20 +44,69 @@ else
 	exit 1
 fi
 
+INPUTS_CPP_SOURCES=(
+	source/input/keyboard.cpp
+)
+
+INTERRUPTS_CPP_SOURCES=(
+	source/interrupts/idt.cpp
+	source/interrupts/interrupt_handlers.cpp
+)
+
+KERNEL_CPP_SOURCES=(
+	source/kernel/kernel_main.cpp
+)
+
+STD_CPP_SOURCES=(
+	source/std/memcpy.cpp
+)
+
+CPP_SOURCES=(
+	"${INPUTS_CPP_SOURCES[@]}"
+	"${INTERRUPTS_CPP_SOURCES[@]}"
+	"${KERNEL_CPP_SOURCES[@]}"
+	"${STD_CPP_SOURCES[@]}"
+)
+
+CXXFLAGS=(
+	"${TARGET_FLAGS[@]}"
+	-ffreestanding
+	-fno-exceptions
+	-fno-rtti
+	-fno-stack-protector
+	-nostdlib
+	-nodefaultlibs
+	-I source
+)
+
 echo "[build] Assembling kernel entry"
 nasm -f elf32 source/kernel/kernel_entry.asm -o kernel_entry.o
 
-echo "[build] Compiling kernel.cpp"
-if [[ "$TOOLCHAIN" == "clang" ]]; then
-	"$CXX" --target=i686-elf -ffreestanding -fno-exceptions -fno-rtti -fno-stack-protector -nostdlib -nodefaultlibs -I source/type -c source/kernel/kernel.cpp -o kernel.o
-else
-	"$CXX" -m32 -ffreestanding -fno-exceptions -fno-rtti -fno-stack-protector -nostdlib -nodefaultlibs -I source/type -c source/kernel/kernel.cpp -o kernel.o
-fi
+echo "[build] Assembling ISR stubs"
+nasm -f elf32 source/interrupts/isr.asm -o isr.o
 
-echo "[build] Linking kernel.elf"
-"$LD" -m elf_i386 -T source/link/linker.ld -nostdlib -o kernel.elf kernel_entry.o kernel.o
+CPP_OBJECTS=()
 
-echo "[build] Converting kernel.elf -> kernel.bin"
+echo "[build] Compiling C++ sources"
+for src in "${CPP_SOURCES[@]}"; do
+	if [[ ! -f "$src" ]]; then
+		echo "[build] Missing source file: $src"
+		exit 1
+	fi
+
+	rel="${src#source/}"
+	obj="${rel//\//_}"
+	obj="${obj%.cpp}.o"
+
+	echo "[build]   $src -> $obj"
+	"$CXX" "${CXXFLAGS[@]}" -c "$src" -o "$obj"
+	CPP_OBJECTS+=("$obj")
+done
+
+echo "[build] Linking kernel"
+"$LD" -m elf_i386 -T source/link/linker.ld -nostdlib -o kernel.elf kernel_entry.o isr.o "${CPP_OBJECTS[@]}"
+
+echo "[build] Creating kernel binary"
 "$OBJCOPY" -O binary kernel.elf kernel.bin
 
 KERNEL_SIZE=$(wc -c < kernel.bin | tr -d '[:space:]')
