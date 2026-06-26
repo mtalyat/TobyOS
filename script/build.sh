@@ -6,6 +6,9 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "$ROOT_DIR"
 
+BUILD_DIR="build"
+mkdir -p "$BUILD_DIR"
+
 if command -v clang++ >/dev/null 2>&1 && \
 	 command -v ld.lld >/dev/null 2>&1 && \
 	 command -v llvm-objcopy >/dev/null 2>&1; then
@@ -80,10 +83,10 @@ CXXFLAGS=(
 )
 
 echo "[build] Assembling kernel entry"
-nasm -f elf32 source/kernel/kernel_entry.asm -o kernel_entry.o
+nasm -f elf32 source/kernel/kernel_entry.asm -o "$BUILD_DIR/kernel_entry.o"
 
 echo "[build] Assembling ISR stubs"
-nasm -f elf32 source/interrupts/isr.asm -o isr.o
+nasm -f elf32 source/interrupts/isr.asm -o "$BUILD_DIR/isr.o"
 
 CPP_OBJECTS=()
 
@@ -97,31 +100,32 @@ for src in "${CPP_SOURCES[@]}"; do
 	rel="${src#source/}"
 	obj="${rel//\//_}"
 	obj="${obj%.cpp}.o"
+	obj_path="$BUILD_DIR/$obj"
 
-	echo "[build]   $src -> $obj"
-	"$CXX" "${CXXFLAGS[@]}" -c "$src" -o "$obj"
-	CPP_OBJECTS+=("$obj")
+	echo "[build]   $src -> $obj_path"
+	"$CXX" "${CXXFLAGS[@]}" -c "$src" -o "$obj_path"
+	CPP_OBJECTS+=("$obj_path")
 done
 
 echo "[build] Linking kernel"
-"$LD" -m elf_i386 -T source/link/linker.ld -nostdlib -o kernel.elf kernel_entry.o isr.o "${CPP_OBJECTS[@]}"
+"$LD" -m elf_i386 -T source/link/linker.ld -nostdlib -o "$BUILD_DIR/kernel.elf" "$BUILD_DIR/kernel_entry.o" "$BUILD_DIR/isr.o" "${CPP_OBJECTS[@]}"
 
 echo "[build] Creating kernel binary"
-"$OBJCOPY" -O binary kernel.elf kernel.bin
+"$OBJCOPY" -O binary "$BUILD_DIR/kernel.elf" "$BUILD_DIR/kernel.bin"
 
-KERNEL_SIZE=$(wc -c < kernel.bin | tr -d '[:space:]')
+KERNEL_SIZE=$(wc -c < "$BUILD_DIR/kernel.bin" | tr -d '[:space:]')
 KERNEL_SECTORS=$(( (KERNEL_SIZE + 511) / 512 ))
 
 echo "[build] Assembling bootloader (kernel sectors: ${KERNEL_SECTORS})"
-nasm -f bin source/boot/boot.asm -o boot.bin -DKERNEL_SECTORS="${KERNEL_SECTORS}"
+nasm -f bin source/boot/boot.asm -o "$BUILD_DIR/boot.bin" -DKERNEL_SECTORS="${KERNEL_SECTORS}"
 
 echo "[build] Creating os-image.bin"
-cat boot.bin kernel.bin > os-image.bin
+cat "$BUILD_DIR/boot.bin" "$BUILD_DIR/kernel.bin" > "$BUILD_DIR/os-image.bin"
 
-IMAGE_SIZE=$(wc -c < os-image.bin | tr -d '[:space:]')
+IMAGE_SIZE=$(wc -c < "$BUILD_DIR/os-image.bin" | tr -d '[:space:]')
 PAD=$(( (512 - (IMAGE_SIZE % 512)) % 512 ))
 if [[ "$PAD" -gt 0 ]]; then
-	dd if=/dev/zero bs=1 count="$PAD" >> os-image.bin 2>/dev/null
+	dd if=/dev/zero bs=1 count="$PAD" >> "$BUILD_DIR/os-image.bin" 2>/dev/null
 fi
 
-echo "[build] Done: os-image.bin"
+echo "[build] Done: $BUILD_DIR/os-image.bin"
