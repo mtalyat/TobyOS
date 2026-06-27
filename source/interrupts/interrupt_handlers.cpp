@@ -1,6 +1,6 @@
 #include "interrupt_handlers.hpp"
 #include "kernel/kernel_context.hpp"
-#include "kernel/portio.hpp"
+#include "io/port.hpp"
 #include "input/keyboard.hpp"
 
 void interrupt_timer()
