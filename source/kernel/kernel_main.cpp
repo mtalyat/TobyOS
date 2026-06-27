@@ -36,44 +36,28 @@ extern "C" void kernel_main(BootInfo* boot_info)
     // Higher-resolution framebuffer demo.
     Framebuffer framebuffer;
     framebuffer.init();
+    
+    framebuffer.fill(0x000000);
+    framebuffer.draw_string("TobyOS Kernel", 0, 0, 0x00ff00);
+    framebuffer.draw_string("Memory Regions: ", 0, 20, 0xffffff);
+    framebuffer.draw_number(static_cast<wuint>(memory_region_count), 16 * Framebuffer::FONT_WIDTH, 20, 0xffffff);
+    for (uint i = 0; i < memory_region_count && i < 64; ++i)
+    {
+        const MemoryRegion &region = boot_info->regions[i];
+        framebuffer.draw_string("Region ", 0, 40 + i * 20, 0xffffff);
+        framebuffer.draw_number(static_cast<wuint>(i), 7 * Framebuffer::FONT_WIDTH, 40 + i * 20, 0xffffff);
+        framebuffer.draw_string(": Base = ", 12 * Framebuffer::FONT_WIDTH, 40 + i * 20, 0xffffff);
+        framebuffer.draw_number(static_cast<wuint>(region.base), 22 * Framebuffer::FONT_WIDTH, 40 + i * 20, 0xffffff);
+        framebuffer.draw_string(", Length = ", 42 * Framebuffer::FONT_WIDTH, 40 + i * 20, 0xffffff);
+        framebuffer.draw_number(static_cast<wuint>(region.length), 54 * Framebuffer::FONT_WIDTH, 40 + i * 20, 0xffffff);
+        framebuffer.draw_string(", Type = ", 74 * Framebuffer::FONT_WIDTH, 40 + i * 20, 0xffffff);
+        framebuffer.draw_number(static_cast<wuint>(region.type), 84 * Framebuffer::FONT_WIDTH, 40 + i * 20, 0xffffff);
+    }
+    framebuffer.present();
 
     // Main application loop
-    int channel = 0;
-    byte red = 0;
-    byte green = 0;
-    byte blue = 0;
-    byte* selected_channel = &red;
     while (true)
     {
-        DISABLE_INTERRUPTS();
-        uint ticks = static_cast<uint>(context.time.ticks);
-        ENABLE_INTERRUPTS();
-
-        if (*selected_channel < 250)
-        {
-            *selected_channel += 5;
-        }
-        else
-        {
-            *selected_channel = 0;
-            if (selected_channel == &red)
-            {
-                selected_channel = &green;
-            }
-            else if (selected_channel == &green)
-            {
-                selected_channel = &blue;
-            }
-            else
-            {
-                selected_channel = &red;
-            }
-        }
-        framebuffer.fill((red << 16) | (green << 8) | blue);
-        framebuffer.draw_line(0, 0, framebuffer.get_width() - 1, framebuffer.get_height() - 1, 0xFFFFFF);
-        framebuffer.draw_string("Hello, world!", 10, 10, 0xFFFFFF);
-        framebuffer.present();
-
         HALT();
     }
 }

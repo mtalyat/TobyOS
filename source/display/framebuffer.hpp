@@ -135,6 +135,50 @@ public:
         }
     }
 
+    void draw_number(wint number, uint x, uint y, uint32 color)
+    {
+        // if negative, draw a minus sign and convert to positive
+        if (number < 0)
+        {
+            draw_char('-', x, y, color);
+            number = -number;
+            x += FONT_WIDTH;
+        }
+
+        // draw the number an unsigned integer
+        draw_number(static_cast<wuint>(number), x, y, color);
+    }
+
+    void draw_number(wuint number, uint x, uint y, uint32 color)
+    {
+        char buffer[32];
+        int index = 0;
+
+        if (number == 0)
+        {
+            buffer[index++] = '0';
+        }
+        else
+        {
+            while (number > 0 && index < sizeof(buffer) - 1)
+            {
+                buffer[index++] = '0' + (number % 10);
+                number /= 10;
+            }
+        }
+
+        // Reverse the string
+        for (int i = 0; i < index / 2; ++i)
+        {
+            char temp = buffer[i];
+            buffer[i] = buffer[index - i - 1];
+            buffer[index - i - 1] = temp;
+        }
+        buffer[index] = '\0';
+
+        draw_string(buffer, x, y, color);
+    }
+
     void draw_line(uint x0, uint y0, uint x1, uint y1, uint32 color)
     {
         int dx = Math::abs(x1 - x0);
