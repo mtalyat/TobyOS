@@ -2,8 +2,20 @@
 
 #include "types/types.hpp"
 
+#pragma pack(push, 1)
+
+struct MemoryRegion
+{
+    uint64 base;
+    uint64 length;
+    uint32 type;
+};
+
 struct BootInfo
 {
+    uint32 region_count;
+    MemoryRegion regions[64];
+
     uint32 framebuffer_address;
     uint16 width;
     uint16 height;
@@ -17,5 +29,7 @@ struct BootInfo
     uint8 blue_shift;
     uint8 reserved;
 };
+
+#pragma pack(pop)
 
 static constexpr uint32 BOOT_INFO_ADDRESS = 0x0500;

@@ -14,6 +14,20 @@ CODE_SEG equ 0x08
 DATA_SEG equ 0x10
 VBE_MODE_INFO equ 0x8000
 BOOT_INFO equ 0x0500
+BOOT_INFO_REGION_COUNT equ BOOT_INFO + 0
+BOOT_INFO_REGIONS equ BOOT_INFO + 4
+BOOT_INFO_FRAMEBUFFER_ADDR equ BOOT_INFO + 1284
+BOOT_INFO_WIDTH equ BOOT_INFO + 1288
+BOOT_INFO_HEIGHT equ BOOT_INFO + 1290
+BOOT_INFO_PITCH equ BOOT_INFO + 1292
+BOOT_INFO_BPP equ BOOT_INFO + 1294
+BOOT_INFO_RED_MASK_SIZE equ BOOT_INFO + 1295
+BOOT_INFO_RED_SHIFT equ BOOT_INFO + 1296
+BOOT_INFO_GREEN_MASK_SIZE equ BOOT_INFO + 1297
+BOOT_INFO_GREEN_SHIFT equ BOOT_INFO + 1298
+BOOT_INFO_BLUE_MASK_SIZE equ BOOT_INFO + 1299
+BOOT_INFO_BLUE_SHIFT equ BOOT_INFO + 1300
+BOOT_INFO_RESERVED equ BOOT_INFO + 1301
 VBE_MODE_LIST equ vbe_mode_list
 
 start:
@@ -30,6 +44,8 @@ start:
     mov bx, KERNEL_OFFSET
     mov dh, KERNEL_SECTORS
     call disk_load
+
+    call detect_memory_map
 
     call select_graphics_mode
     jc graphics_error
@@ -99,29 +115,29 @@ select_graphics_mode:
 
     ; Publish framebuffer details for the kernel at a known low-memory address.
     mov eax, [VBE_MODE_INFO + 40]    ; PhysBasePtr
-    mov [BOOT_INFO + 0], eax
+    mov [BOOT_INFO_FRAMEBUFFER_ADDR], eax
     mov ax, [VBE_MODE_INFO + 18]     ; XResolution
-    mov [BOOT_INFO + 4], ax
+    mov [BOOT_INFO_WIDTH], ax
     mov ax, [VBE_MODE_INFO + 20]     ; YResolution
-    mov [BOOT_INFO + 6], ax
+    mov [BOOT_INFO_HEIGHT], ax
     mov ax, [VBE_MODE_INFO + 16]     ; BytesPerScanLine
-    mov [BOOT_INFO + 8], ax
+    mov [BOOT_INFO_PITCH], ax
     mov al, [VBE_MODE_INFO + 25]     ; BitsPerPixel
-    mov [BOOT_INFO + 10], al
+    mov [BOOT_INFO_BPP], al
     mov al, [VBE_MODE_INFO + 31]     ; RedMaskSize
-    mov [BOOT_INFO + 11], al
+    mov [BOOT_INFO_RED_MASK_SIZE], al
     mov al, [VBE_MODE_INFO + 32]     ; RedFieldPosition
-    mov [BOOT_INFO + 12], al
+    mov [BOOT_INFO_RED_SHIFT], al
     mov al, [VBE_MODE_INFO + 33]     ; GreenMaskSize
-    mov [BOOT_INFO + 13], al
+    mov [BOOT_INFO_GREEN_MASK_SIZE], al
     mov al, [VBE_MODE_INFO + 34]     ; GreenFieldPosition
-    mov [BOOT_INFO + 14], al
+    mov [BOOT_INFO_GREEN_SHIFT], al
     mov al, [VBE_MODE_INFO + 35]     ; BlueMaskSize
-    mov [BOOT_INFO + 15], al
+    mov [BOOT_INFO_BLUE_MASK_SIZE], al
     mov al, [VBE_MODE_INFO + 36]     ; BlueFieldPosition
-    mov [BOOT_INFO + 16], al
+    mov [BOOT_INFO_BLUE_SHIFT], al
     xor ax, ax
-    mov [BOOT_INFO + 17], al
+    mov [BOOT_INFO_RESERVED], al
 
     popa
     clc
@@ -130,6 +146,55 @@ select_graphics_mode:
 .fail:
     popa
     stc
+    ret
+
+detect_memory_map:
+    pusha
+
+    xor eax, eax
+    mov [BOOT_INFO_REGION_COUNT], eax
+    xor ebx, ebx
+
+.next_entry:
+    xor ax, ax
+    mov es, ax
+    mov di, e820_buffer
+
+    mov eax, 0xE820
+    mov edx, 0x534D4150
+    mov ecx, 20
+    int 0x15
+    jc .done
+    cmp eax, 0x534D4150
+    jne .done
+
+    mov eax, [BOOT_INFO_REGION_COUNT]
+    cmp eax, 64
+    jae .continue
+
+    ; destination = BOOT_INFO_REGIONS + (region_count * 20)
+    mov ax, [BOOT_INFO_REGION_COUNT]
+    mov dx, ax
+    shl ax, 4
+    shl dx, 2
+    add ax, dx
+    add ax, BOOT_INFO_REGIONS
+    mov di, ax
+
+    mov si, e820_buffer
+    mov cx, 20
+    rep movsb
+
+    mov eax, [BOOT_INFO_REGION_COUNT]
+    inc eax
+    mov [BOOT_INFO_REGION_COUNT], eax
+
+.continue:
+    test ebx, ebx
+    jne .next_entry
+
+.done:
+    popa
     ret
 
 print_string:
@@ -156,8 +221,11 @@ protected_mode_start:
     ; Keep stack above kernel .bss (framebuffer backbuffer is large).
     mov esp, 0x800000
 
+    mov eax, BOOT_INFO
+    push eax
     mov eax, KERNEL_OFFSET
     call eax
+    add esp, 4
 
 .hang:
     cli
@@ -169,6 +237,8 @@ boot_drive db 0
 disk_error_msg db 'Disk read error', 0
 graphics_error_msg db 'No suitable graphics mode', 0
 selected_mode dw 0
+e820_buffer:
+    times 20 db 0
 
 vbe_mode_list:
     dw 0x118    ; 1024x768x16/24 depending on adapter

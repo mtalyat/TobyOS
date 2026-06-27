@@ -4,12 +4,24 @@
 #include "kernel/kernel_context.hpp"
 #include "kernel/asm.hpp"
 #include "input/keyboard.hpp"
+#include "boot/boot_info.hpp"
 
 KernelContext *gp_kernel_context;
+// static PhysicalMemoryManager g_physical_memory_manager;
 
-extern "C" void kernel_main()
+extern "C" void kernel_main(BootInfo* boot_info)
 {
     DISABLE_INTERRUPTS();
+
+    if (boot_info == nullptr)
+    {
+        while (true)
+        {
+            HALT();
+        }
+    }
+
+    const uint32 memory_region_count = boot_info->region_count;
 
     // Initialize context
     KernelContext context;
@@ -27,7 +39,9 @@ extern "C" void kernel_main()
 
     // Main application loop
     int channel = 0;
-    byte red = 0, green = 0, blue = 0;
+    byte red = 0;
+    byte green = 0;
+    byte blue = 0;
     byte* selected_channel = &red;
     while (true)
     {

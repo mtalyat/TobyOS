@@ -18,3 +18,5 @@ class Bitmap
     private:
     uint8 m_bits[(Size + 7) / 8];
 };
+
+#include "types/bitmap.inl"
