@@ -71,6 +71,7 @@ extern "C" void kernel_main(BootInfo* boot_info)
         }
         framebuffer.fill((red << 16) | (green << 8) | blue);
         framebuffer.draw_line(0, 0, framebuffer.get_width() - 1, framebuffer.get_height() - 1, 0xFFFFFF);
+        framebuffer.draw_string("Hello, world!", 10, 10, 0xFFFFFF);
         framebuffer.present();
 
         HALT();

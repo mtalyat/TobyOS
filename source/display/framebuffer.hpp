@@ -3,35 +3,27 @@
 #include "boot/boot_info.hpp"
 #include "types/types.hpp"
 #include "core/math.hpp"
+#include "display/font.hpp"
 
 class Framebuffer
 {
-    public:
+public:
     static constexpr uint8 BACKGROUND_COLOR = 0;
     static constexpr uint MAX_WIDTH = 1024;
     static constexpr uint MAX_HEIGHT = 768;
     static constexpr uint MAX_PIXELS = MAX_WIDTH * MAX_HEIGHT;
+    static constexpr uint FONT_WIDTH = 8;
+    static constexpr uint FONT_HEIGHT = 8;
 
     Framebuffer()
-        : mp_pixels(reinterpret_cast<volatile uint8*>(BOOT_INFO_ADDRESS))
-        , m_width(0)
-        , m_height(0)
-        , m_pitch(0)
-        , m_bytes_per_pixel(0)
-        , m_bits_per_pixel(0)
-        , m_red_mask_size(0)
-        , m_red_shift(0)
-        , m_green_mask_size(0)
-        , m_green_shift(0)
-        , m_blue_mask_size(0)
-        , m_blue_shift(0)
+        : mp_pixels(reinterpret_cast<volatile uint8 *>(BOOT_INFO_ADDRESS)), m_width(0), m_height(0), m_pitch(0), m_bytes_per_pixel(0), m_bits_per_pixel(0), m_red_mask_size(0), m_red_shift(0), m_green_mask_size(0), m_green_shift(0), m_blue_mask_size(0), m_blue_shift(0)
     {
     }
 
     void init()
     {
-        const BootInfo& info = *reinterpret_cast<const BootInfo*>(BOOT_INFO_ADDRESS);
-        mp_pixels = reinterpret_cast<volatile uint8*>(static_cast<uint32>(info.framebuffer_address));
+        const BootInfo &info = *reinterpret_cast<const BootInfo *>(BOOT_INFO_ADDRESS);
+        mp_pixels = reinterpret_cast<volatile uint8 *>(static_cast<uint32>(info.framebuffer_address));
         m_width = info.width;
         m_height = info.height;
         m_pitch = info.pitch;
@@ -99,7 +91,50 @@ class Framebuffer
     {
         set_pixel(x, y, color);
     }
-    
+
+    void draw_char(char character, uint x, uint y, uint32 color)
+    {
+        const uint8 *glyph = glyph_for(character);
+        for (uint row = 0; row < FONT_HEIGHT; ++row)
+        {
+            uint8 bits = glyph[row];
+            for (uint column = 0; column < FONT_WIDTH; ++column)
+            {
+                // discard the pixel if it is empty
+                if ((bits & (1 << (7 - column))) == 0)
+                {
+                    continue;
+                }
+                draw_pixel(x + column, y + row, color);
+            }
+        }
+    }
+
+    void draw_string(const char *text, uint x, uint y, uint32 color)
+    {
+        if (text == nullptr)
+        {
+            return;
+        }
+
+        uint cursor_x = x;
+        uint cursor_y = y;
+
+        while (*text)
+        {
+            char character = *text++;
+            if (character == '\n')
+            {
+                cursor_x = x;
+                cursor_y += FONT_HEIGHT;
+                continue;
+            }
+
+            draw_char(character, cursor_x, cursor_y, color);
+            cursor_x += FONT_WIDTH;
+        }
+    }
+
     void draw_line(uint x0, uint y0, uint x1, uint y1, uint32 color)
     {
         int dx = Math::abs(x1 - x0);
@@ -141,7 +176,7 @@ class Framebuffer
             for (uint x = 0; x < m_width; ++x)
             {
                 uint32 color = pack_color(m_backbuffer[y * m_width + x]);
-                volatile uint8* pixel = mp_pixels + (y * m_pitch) + (x * m_bytes_per_pixel);
+                volatile uint8 *pixel = mp_pixels + (y * m_pitch) + (x * m_bytes_per_pixel);
                 for (uint8 i = 0; i < m_bytes_per_pixel; ++i)
                 {
                     pixel[i] = static_cast<uint8>(color >> (i * 8));
@@ -150,7 +185,18 @@ class Framebuffer
         }
     }
 
-    private:
+private:
+    static const uint8 *glyph_for(char character)
+    {
+        const uint8 index = static_cast<uint8>(character);
+        if (index >= 128)
+        {
+            return FONT[0]; // Return a default glyph for unsuported characters
+        }
+
+        return FONT[index];
+    }
+
     static uint32 scale_channel(uint8 value, uint8 bits)
     {
         if (bits == 0)
@@ -185,7 +231,7 @@ class Framebuffer
         return packed;
     }
 
-    volatile uint8* mp_pixels;
+    volatile uint8 *mp_pixels;
     uint m_width;
     uint m_height;
     uint m_pitch;
