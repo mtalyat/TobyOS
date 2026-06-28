@@ -6,11 +6,12 @@
 #include "input/keyboard.hpp"
 #include "boot/boot_info.hpp"
 #include "io/serial.hpp"
+#include "memory/PhysicalMemoryManager.hpp"
 
 KernelContext *gp_kernel_context;
 // static PhysicalMemoryManager g_physical_memory_manager;
 
-extern "C" void kernel_main(BootInfo* boot_info)
+extern "C" void kernel_main(BootInfo *boot_info)
 {
     DISABLE_INTERRUPTS();
 
@@ -25,45 +26,44 @@ extern "C" void kernel_main(BootInfo* boot_info)
     const uint32 memory_region_count = boot_info->region_count;
 
     // Initialize context
-    KernelContext context;
+    KernelContext context(*boot_info);
     gp_kernel_context = &context;
 
     // Initialize PIC, IDT, and PIT before enabling interrupts.
     pic_init();
     IDT::init();
     pit_init(100); // 100 Hz timer
-    Serial serial;
-
     ENABLE_INTERRUPTS();
 
-    // Higher-resolution framebuffer demo.
-    Framebuffer framebuffer;
-    framebuffer.init();
-    
-    framebuffer.fill(0x000000);
-    framebuffer.draw_string("TobyOS Kernel", 0, 0, 0x00ff00);
-    framebuffer.present();
+    Framebuffer& framebuffer = context.framebuffer;
+    Serial& serial = context.serial;
 
     serial.write("TobyOS Kernel\n");
-    serial.write("Memory Regions: ");
-    serial.write(static_cast<wuint>(memory_region_count));
-    for (uint i = 0; i < memory_region_count && i < 64; ++i)
-    {
-        const MemoryRegion &region = boot_info->regions[i];
-        serial.write("Region ");
-        serial.write(static_cast<wuint>(i));
-        serial.write(": Base = ");
-        serial.write(static_cast<wuint>(region.base));
-        serial.write(", Length = ");
-        serial.write(static_cast<wuint>(region.length));
-        serial.write(", Type = ");
-        serial.write(static_cast<wuint>(region.type));
-        serial.write("\n");
-    }
+    serial.write("Creating PMM...\n");
+
+    PhysicalMemoryManager pmm(*boot_info);
+
+    serial.write("\n\nPMM Initialized.\n");
+
+    serial.write("Total Pages: ");
+    serial.write(pmm.get_total_page_count());
+    serial.write(", Used Pages: ");
+    serial.write(pmm.get_used_page_count());
+    serial.write(", Free Pages: ");
+    serial.write(pmm.get_free_page_count());
+    serial.write("\n");
 
     // Main application loop
     while (true)
     {
+        time ticks = context.time.ticks;
+
+        framebuffer.fill(0x000000);
+        framebuffer.draw_string("TobyOS Kernel", 0, 0, 0x00ff00);
+        framebuffer.draw_string("Ticks: ", 0, 16, 0x00ff00);
+        framebuffer.draw_number(ticks, Framebuffer::FONT_WIDTH * 7, 16, 0xffffff);
+        framebuffer.present();
+
         HALT();
     }
 }

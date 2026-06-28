@@ -12,8 +12,8 @@ using uint16  = unsigned short;
 using uint32  = unsigned int;
 using uint64  = unsigned long long;
 
-using wint = long long;
-using wuint = unsigned long long;
+using wint = int32;
+using wuint = uint32;
 
 using byte = uint8;
 using uint = uint32;

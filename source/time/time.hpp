@@ -2,7 +2,7 @@
 
 #include "types/types.hpp"
 
-using time = long long;
+using time = wint;
 
 constexpr time TICKS_PER_SECOND = 100;
 

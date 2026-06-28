@@ -60,6 +60,10 @@ KERNEL_CPP_SOURCES=(
 	source/kernel/kernel_main.cpp
 )
 
+MEMORY_CPP_SOURCES=(
+	source/memory/PhysicalMemoryManager.cpp
+)
+
 STD_CPP_SOURCES=(
 	source/std/memcpy.cpp
 )
@@ -68,6 +72,7 @@ CPP_SOURCES=(
 	"${INPUTS_CPP_SOURCES[@]}"
 	"${INTERRUPTS_CPP_SOURCES[@]}"
 	"${KERNEL_CPP_SOURCES[@]}"
+	"${MEMORY_CPP_SOURCES[@]}"
 	"${STD_CPP_SOURCES[@]}"
 )
 

@@ -15,27 +15,10 @@ public:
     static constexpr uint FONT_WIDTH = 8;
     static constexpr uint FONT_HEIGHT = 8;
 
-    Framebuffer()
+    Framebuffer(const BootInfo &boot_info)
         : mp_pixels(reinterpret_cast<volatile uint8 *>(BOOT_INFO_ADDRESS)), m_width(0), m_height(0), m_pitch(0), m_bytes_per_pixel(0), m_bits_per_pixel(0), m_red_mask_size(0), m_red_shift(0), m_green_mask_size(0), m_green_shift(0), m_blue_mask_size(0), m_blue_shift(0)
     {
-    }
-
-    void init()
-    {
-        const BootInfo &info = *reinterpret_cast<const BootInfo *>(BOOT_INFO_ADDRESS);
-        mp_pixels = reinterpret_cast<volatile uint8 *>(static_cast<uint32>(info.framebuffer_address));
-        m_width = info.width;
-        m_height = info.height;
-        m_pitch = info.pitch;
-        m_bits_per_pixel = info.bits_per_pixel;
-        m_bytes_per_pixel = static_cast<uint8>((m_bits_per_pixel + 7) / 8);
-        m_red_mask_size = info.red_mask_size;
-        m_red_shift = info.red_shift;
-        m_green_mask_size = info.green_mask_size;
-        m_green_shift = info.green_shift;
-        m_blue_mask_size = info.blue_mask_size;
-        m_blue_shift = info.blue_shift;
-        clear(0);
+        init(boot_info);
     }
 
     uint get_width() const
@@ -230,6 +213,23 @@ public:
     }
 
 private:
+    void init(const BootInfo &info)
+    {
+        mp_pixels = reinterpret_cast<volatile uint8 *>(static_cast<uint32>(info.framebuffer_address));
+        m_width = info.width;
+        m_height = info.height;
+        m_pitch = info.pitch;
+        m_bits_per_pixel = info.bits_per_pixel;
+        m_bytes_per_pixel = static_cast<uint8>((m_bits_per_pixel + 7) / 8);
+        m_red_mask_size = info.red_mask_size;
+        m_red_shift = info.red_shift;
+        m_green_mask_size = info.green_mask_size;
+        m_green_shift = info.green_shift;
+        m_blue_mask_size = info.blue_mask_size;
+        m_blue_shift = info.blue_shift;
+        clear(0);
+    }
+
     static const uint8 *glyph_for(char character)
     {
         const uint8 index = static_cast<uint8>(character);
