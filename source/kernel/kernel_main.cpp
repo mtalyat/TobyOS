@@ -2,7 +2,7 @@
 #include "display/terminal.hpp"
 #include "display/framebuffer.hpp"
 #include "kernel/kernel_context.hpp"
-#include "core/asm.hpp"
+#include "kernel/control.hpp"
 #include "input/keyboard.hpp"
 #include "boot/boot_info.hpp"
 #include "io/serial.hpp"
@@ -13,13 +13,13 @@ KernelContext *gp_kernel_context;
 
 extern "C" void kernel_main(BootInfo *boot_info)
 {
-    DISABLE_INTERRUPTS();
+    Control::disable_interrupts();
 
     if (boot_info == nullptr)
     {
         while (true)
         {
-            HALT();
+            Control::halt();
         }
     }
 
@@ -33,7 +33,7 @@ extern "C" void kernel_main(BootInfo *boot_info)
     pic_init();
     IDT::init();
     pit_init(100); // 100 Hz timer
-    ENABLE_INTERRUPTS();
+    Control::enable_interrupts();
 
     Framebuffer& framebuffer = context.framebuffer;
     Serial& serial = context.serial;
@@ -64,6 +64,6 @@ extern "C" void kernel_main(BootInfo *boot_info)
         framebuffer.draw_number(ticks, Framebuffer::FONT_WIDTH * 7, 16, 0xffffff);
         framebuffer.present();
 
-        HALT();
+        Control::halt();
     }
 }

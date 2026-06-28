@@ -7,8 +7,3 @@
 #else
 #define ASM_VOLATILE(...)
 #endif
-
-#define NOOP() ASM_VOLATILE("nop")
-#define HALT() ASM_VOLATILE("hlt")
-#define DISABLE_INTERRUPTS() ASM_VOLATILE("cli")
-#define ENABLE_INTERRUPTS() ASM_VOLATILE("sti")
