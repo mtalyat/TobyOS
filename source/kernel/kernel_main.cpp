@@ -6,8 +6,6 @@
 #include "input/keyboard.hpp"
 #include "boot/boot_info.hpp"
 #include "io/serial.hpp"
-#include "memory/PhysicalMemoryManager.hpp"
-#include "memory/VirtualMemoryManager.hpp"
 
 KernelContext *gp_kernel_context;
 // static PhysicalMemoryManager g_physical_memory_manager;
@@ -40,41 +38,6 @@ extern "C" void kernel_main(BootInfo *boot_info)
     Serial& serial = context.serial;
 
     serial.write("TobyOS Kernel\n");
-    serial.write("Creating PMM...\n");
-
-    PhysicalMemoryManager pmm(*boot_info);
-
-    serial.write("\n\nPMM Initialized.\n");
-
-    serial.write("Total Pages: ");
-    serial.write(pmm.get_total_page_count());
-    serial.write(", Used Pages: ");
-    serial.write(pmm.get_used_page_count());
-    serial.write(", Free Pages: ");
-    serial.write(pmm.get_free_page_count());
-    serial.write("\n");
-    serial.write("Total memory tracked: ");
-    serial.write(static_cast<wuint>(pmm.get_total_page_count()) * PhysicalMemoryManager::PAGE_SIZE);
-    serial.write(" bytes\nTotal memory used: ");
-    serial.write(static_cast<wuint>(pmm.get_used_page_count()) * PhysicalMemoryManager::PAGE_SIZE);
-    serial.write(" bytes\nTotal memory free: ");
-    serial.write(static_cast<wuint>(pmm.get_free_page_count()) * PhysicalMemoryManager::PAGE_SIZE);
-    serial.write(" bytes\n");
-
-    serial.write("Creating VMM...\n");
-    VirtualMemoryManager vmm(pmm);
-    if (!vmm.initialize())
-    {
-        serial.write("VMM initialization failed.\n");
-        while (true)
-        {
-            Control::halt();
-        }
-    }
-
-    serial.write("VMM page directory ready. Enabling paging...\n");
-    vmm.enable();
-    serial.write("Paging enabled.\n");
 
     // Main application loop
     while (true)
